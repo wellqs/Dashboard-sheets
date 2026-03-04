@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório de Perfil Microbiano - Q2 2025</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <!-- HTML Comments for Process and Choices -->
+    <!-- 
+        PALETTE CHOICE: Vibrant Clinical
+        Primary: #2563EB (Brilliant Blue)
+        Secondary: #06B6D4 (Cyan)
+        Accent: #EF4444 (Alert Red)
+        Neutral: #F8FAFC (Slate Light)
+        
+        NARRATIVE PLAN:
+        1. Overview: Quick stats on lab production (Positivity rate).
+        2. Topography: Where infections are coming from (Tissue/Bone dominance).
+        3. Pathogens: Frequency of specific bacteria.
+        4. Resistance: Critical alerts for MDR/XDR.
+        
+        VISUALIZATION CHOICES (NO SVG, NO MERMAID):
+        1. Positivity Rate -> Donut Chart (Chart.js) -> Goal: Inform Proportion.
+        2. Monthly Production -> Stacked Bar (Chart.js) -> Goal: Compare over time.
+        3. Topography -> Horizontal Bar (Chart.js) -> Goal: Compare Categories (Long labels).
+        4. Microorganisms -> Vertical Bar (Chart.js) -> Goal: Rank frequency.
+        5. Resistance -> Bar Chart (Chart.js) -> Goal: Highlight critical counts.
+        
+        CONFIRMATION:
+        - NEITHER Mermaid JS NOR SVG were used anywhere in the output.
+        - Unicode icons used instead of SVG icons.
+        - Canvas used for all charts.
+    -->
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F1F5F9; /* Slate 100 */
+        }
+
+        /* Chart Container Styling - Mandatory Requirements */
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px; /* Constraint for large screens */
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px; /* Base height */
+            max-height: 400px;
+        }
+
+        /* Responsive height adjustments */
+        @media (max-width: 640px) {
+            .chart-container {
+                height: 300px;
+            }
+        }
+        
+        /* Custom scrollbar for modern feel */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Header Section -->
+    <header class="bg-gradient-to-r from-blue-700 to-cyan-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-12 text-center">
+            <div class="text-6xl mb-4 font-bold">Perfil Microbiano<span class="text-cyan-300"> HRRO</span></div>
+            <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">Relatório Trimestral de Vigilância</h1>
+            <p class="text-lg md:text-xl text-blue-100 font-light">Abril - Junho 2025 | Fonte: CCIH/HRRO</p>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-12 max-w-6xl">
+
+        <!-- Section 1: Introduction & Production Overview -->
+        <section class="mb-16">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h2 class="text-3xl font-bold text-blue-800 mb-6 border-l-4 border-cyan-500 pl-4">Visão Geral da Produção</h2>
+                    <p class="text-lg text-slate-600 leading-relaxed mb-6">
+                        No segundo trimestre de 2025, o laboratório processou um total de <strong><span id="kpiTotal">82</span> amostras biológicas</strong>. 
+                        A análise revela uma taxa de positividade expressiva de aproximadamente <strong><span id="kpiRate">69.5%</span></strong>, indicando uma alta prevalência de infecções confirmadas nas solicitações enviadas.
+                    </p>
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-blue-500 text-center">
+                            <div class="text-4xl font-bold text-slate-800" id="kpiTotalCard">82</div>
+                            <div class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Total de Amostras</div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md border-t-4 border-emerald-500 text-center">
+                            <div class="text-4xl font-bold text-emerald-600" id="kpiPositiveCard">57</div>
+                            <div class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Culturas Positivas</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chart: Monthly Production & Positivity -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h3 class="text-xl font-bold text-slate-700 mb-4 text-center">Evolução Mensal de Culturas</h3>
+                    <div class="chart-container">
+                        <canvas id="productionChart"></canvas>
+                    </div>
+                    <p class="text-sm text-slate-400 text-center mt-4">Comparativo mensal entre culturas positivas e negativas.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Topography (Source of Infection) -->
+        <section class="mb-16 bg-white rounded-2xl shadow-xl p-8 md:p-12 border border-slate-100">
+            <div class="text-center max-w-3xl mx-auto mb-10">
+                <h2 class="text-3xl font-bold text-blue-800 mb-4">Mapeamento Topográfico</h2>
+                <p class="text-slate-600">
+                    A análise da origem das amostras é crucial para entender o perfil clínico dos pacientes. 
+                    Observa-se um domínio absoluto de infecções em <strong>Tecidos (partes moles)</strong> e <strong>Fragmentos Ósseos</strong>, sugerindo um alto volume de infecções cirúrgicas, traumáticas ou de feridas crônicas.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Data Card -->
+                <div class="lg:col-span-1 flex flex-col justify-center space-y-4">
+                    <div class="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-600">
+                        <h4 class="font-bold text-blue-900">🧬 Tecidos Moles</h4>
+                        <p class="text-blue-700"><span id="kpiTecido">33</span> amostras (<span id="kpiTecidoPct">40%</span> do total)</p>
+                    </div>
+                    <div class="bg-cyan-50 p-4 rounded-lg border-l-4 border-cyan-600">
+                        <h4 class="font-bold text-cyan-900">🦴 Fragmento Ósseo</h4>
+                        <p class="text-cyan-700"><span id="kpiOsseo">22</span> amostras (<span id="kpiOsseoPct">27%</span> do total)</p>
+                    </div>
+                    <div class="bg-amber-50 p-4 rounded-lg border-l-4 border-amber-600">
+                        <h4 class="font-bold text-amber-900">🧪 Urocultura</h4>
+                        <p class="text-amber-700"><span id="kpiUro">15</span> amostras (<span id="kpiUroPct">18%</span> do total)</p>
+                    </div>
+                </div>
+
+                <!-- Chart: Topography -->
+                <div class="lg:col-span-2">
+                    <div class="chart-container" style="max-height: 400px;">
+                        <canvas id="topographyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Microorganisms Profile -->
+        <section class="mb-16">
+            <div class="flex flex-col md:flex-row gap-8">
+                <div class="md:w-1/2">
+                    <h2 class="text-3xl font-bold text-blue-800 mb-6 border-l-4 border-purple-500 pl-4">Agentes Etiológicos</h2>
+                    <p class="text-lg text-slate-600 leading-relaxed mb-6">
+                        O perfil microbiológico apresenta uma mistura preocupante de Gram-positivos e Gram-negativos.
+                        O <strong>Staphylococcus aureus</strong> lidera como o patógeno isolado mais frequente, seguido de perto por bacilos Gram-negativos como <em>Klebsiella pneumoniae</em> e <em>Pseudomonas aeruginosa</em>.
+                    </p>
+                    <ul class="space-y-3 mb-6">
+                        <li class="flex items-center text-slate-700">
+                            <span class="text-2xl mr-3">🧫</span>
+                            <span><strong>Gram-Positivos:</strong> Predomínio de S. aureus e S. epidermidis.</span>
+                        </li>
+                        <li class="flex items-center text-slate-700">
+                            <span class="text-2xl mr-3">🦠</span>
+                            <span><strong>Gram-Negativos:</strong> Alta diversidade com foco em Enterobactérias e não-fermentadores.</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="md:w-1/2 bg-white p-6 rounded-xl shadow-lg">
+                    <div class="chart-container">
+                        <canvas id="microbioChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Resistance Alert -->
+        <section class="bg-slate-900 text-white rounded-3xl p-8 md:p-12 shadow-2xl relative overflow-hidden">
+            <!-- Background decoration (CSS only) -->
+            <div class="absolute top-0 right-0 w-64 h-64 bg-red-600 opacity-10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+
+            <div class="relative z-10">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10">
+                    <div>
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-red-500 mb-2">⚠️ Alerta de Resistência</h2>
+                        <p class="text-slate-300 text-lg">Vigilância de microrganismos Multirresistentes (MDR) e Extensivamente Resistentes (XDR)</p>
+                    </div>
+                    <div class="mt-4 md:mt-0 bg-red-600 bg-opacity-20 border border-red-500 rounded-lg px-6 py-3">
+                        <span class="text-2xl font-bold text-red-400" id="kpiCritical">13</span>
+                        <span class="text-red-200 uppercase text-xs tracking-wider block">Eventos Críticos</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div>
+                        <p class="text-slate-300 leading-relaxed mb-6">
+                            A detecção de mecanismos de resistência críticos exige atenção imediata. Destaca-se a presença de <strong>Acinetobacter baumannii (MDR/CRE)</strong> e <strong>Klebsiella pneumoniae (ESBL/CRE)</strong>. Estes patógenos apresentam opções terapêuticas limitadas e alto risco de disseminação intra-hospitalar.
+                        </p>
+                        <div class="space-y-4">
+                            <!-- Alert Card 1 -->
+                            <div class="flex items-center bg-slate-800 p-4 rounded-lg border-l-4 border-red-500">
+                                <span class="text-2xl mr-4">💊</span>
+                                <div>
+                                    <h4 class="font-bold text-white">Klebsiella pneumoniae</h4>
+                                    <p class="text-sm text-slate-400">3 Casos (ESBL/CRE) - Produção de Carbapenemases</p>
+                                </div>
+                            </div>
+                            <!-- Alert Card 2 -->
+                            <div class="flex items-center bg-slate-800 p-4 rounded-lg border-l-4 border-orange-500">
+                                <span class="text-2xl mr-4">🛡️</span>
+                                <div>
+                                    <h4 class="font-bold text-white">Staphylococcus aureus (MRSA)</h4>
+                                    <p class="text-sm text-slate-400">4 Casos - Resistente à Meticilina</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                        <h4 class="text-center text-slate-300 mb-4 font-semibold uppercase tracking-widest text-xs">Distribuição de Resistência</h4>
+                        <div class="chart-container">
+                            <canvas id="resistanceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="mt-16 py-8 text-center text-slate-500 border-t border-slate-200">
+            <p class="mb-2">© 2025 CCIH/HRRO - Comissão de Controle de Infecção Hospitalar</p>
+            <p class="text-sm">Dados baseados no relatório "Tabelas de Perfil Microbiano Mensal 25" (Abril-Junho).</p>
+        </footer>
+
+    </main>
+
+    <!-- ✅ SCRIPT FINAL (ARRUMADO) -->
+    <script>
+      // --- UTILITY FUNCTIONS ---
+      function wrapLabel(str) {
+        str = String(str ?? "");
+        if (str.length <= 16) return str;
+        const words = str.split(' ');
+        const lines = [];
+        let currentLine = words[0];
+
+        for (let i = 1; i < words.length; i++) {
+          if ((currentLine + " " + words[i]).length <= 16) {
+            currentLine += " " + words[i];
+          } else {
+            lines.push(currentLine);
+            currentLine = words[i];
+          }
+        }
+        lines.push(currentLine);
+        return lines;
+      }
+
+      const commonTooltipOptions = {
+        callbacks: {
+          title: function(tooltipItems) {
+            const item = tooltipItems[0];
+            let label = item.chart.data.labels[item.dataIndex];
+            if (Array.isArray(label)) return label.join(' ');
+            return label;
+          }
+        }
+      };
+
+      // --- DEFAULTS (para nunca ficar em branco) ---
+      const DEFAULT_PAYLOAD = {
+        summary: {
+          totalSamples: 82,
+          totalPositive: 57,
+          positivityRate: 69.5,
+          criticalEvents: 13
+        },
+        charts: {
+          production: {
+            labels: ['Abril', 'Maio', 'Junho'],
+            positive: [16, 24, 17],
+            negative: [12, 5, 6],
+            contaminated: [0, 1, 1]
+          },
+          topography: {
+            labels: [
+              'Tecido (partes moles)',
+              'Fragmento ósseo',
+              'Urocultura',
+              'Peça cirúrgica',
+              'Secreção de ferida',
+              'Outros'
+            ],
+            totals: [33, 22, 15, 6, 6, 3]
+          },
+          microbio: {
+            labels: ['S. aureus', 'K. pneumoniae', 'P. aeruginosa', 'A. baumannii', 'S. epidermidis', 'E. cloacae'],
+            totals: [11, 7, 6, 6, 5, 4]
+          },
+          resistance: {
+            labels: ['A. baumannii (MDR/CRE)', 'S. aureus (MRSA)', 'K. pneumoniae (ESBL/CRE)', 'E. coli (ESBL)'],
+            totals: [4, 4, 3, 2]
+          }
+        }
+      };
+
+      // --- CHART INSTANCES ---
+      let productionChart, topographyChart, microbioChart, resistanceChart;
+
+      function applyWrappedLabels(labels) {
+        return (labels || []).map(l => wrapLabel(String(l)));
+      }
+
+      function updateKPIs(payload) {
+        const s = payload?.summary;
+        if (!s) return;
+
+        const kpiTotal = document.getElementById("kpiTotal");
+        if (kpiTotal) kpiTotal.textContent = s.totalSamples ?? "—";
+
+        const kpiRate = document.getElementById("kpiRate");
+        if (kpiRate) kpiRate.textContent =
+          (typeof s.positivityRate === "number") ? `${s.positivityRate.toFixed(1)}%` : "—";
+
+        const kpiTotalCard = document.getElementById("kpiTotalCard");
+        if (kpiTotalCard) kpiTotalCard.textContent = s.totalSamples ?? "—";
+
+        const kpiPositiveCard = document.getElementById("kpiPositiveCard");
+        if (kpiPositiveCard) kpiPositiveCard.textContent = s.totalPositive ?? "—";
+
+        const kpiCritical = document.getElementById("kpiCritical");
+        if (kpiCritical) kpiCritical.textContent = s.criticalEvents ?? "—";
+      }
+
+      function updateTopographyCards(payload) {
+        const labels = payload?.charts?.topography?.labels || [];
+        const totals = payload?.charts?.topography?.totals || [];
+        const totalAll = totals.reduce((a, b) => a + (Number(b) || 0), 0) || 0;
+
+        const get = (name) => {
+          const idx = labels.findIndex(l => String(l).toLowerCase() === String(name).toLowerCase());
+          return idx >= 0 ? Number(totals[idx] || 0) : 0;
+        };
+
+        const tecido = get("Tecido (partes moles)");
+        const osseo  = get("Fragmento ósseo");
+        const uro    = get("Urocultura");
+
+        const pct = (v) => totalAll > 0 ? Math.round((v / totalAll) * 100) : 0;
+
+        const elTecido = document.getElementById("kpiTecido");
+        if (elTecido) elTecido.textContent = tecido;
+
+        const elTecidoPct = document.getElementById("kpiTecidoPct");
+        if (elTecidoPct) elTecidoPct.textContent = `${pct(tecido)}%`;
+
+        const elOsseo = document.getElementById("kpiOsseo");
+        if (elOsseo) elOsseo.textContent = osseo;
+
+        const elOsseoPct = document.getElementById("kpiOsseoPct");
+        if (elOsseoPct) elOsseoPct.textContent = `${pct(osseo)}%`;
+
+        const elUro = document.getElementById("kpiUro");
+        if (elUro) elUro.textContent = uro;
+
+        const elUroPct = document.getElementById("kpiUroPct");
+        if (elUroPct) elUroPct.textContent = `${pct(uro)}%`;
+      }
+
+      function initChartsOnce(payload) {
+        // PRODUCTION
+        const ctxProduction = document.getElementById('productionChart')?.getContext('2d');
+        productionChart = new Chart(ctxProduction, {
+          type: 'bar',
+          data: {
+            labels: payload.charts.production.labels,
+            datasets: [
+              { label: 'Positivo', data: payload.charts.production.positive, backgroundColor: '#2563EB', borderRadius: 4 },
+              { label: 'Negativo', data: payload.charts.production.negative, backgroundColor: '#94A3B8', borderRadius: 4 },
+              { label: 'Contaminada', data: payload.charts.production.contaminated, backgroundColor: '#EF4444', borderRadius: 4 }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: { stacked: true, grid: { display: false } },
+              y: { stacked: true, grid: { color: '#F1F5F9' } }
+            },
+            plugins: { tooltip: commonTooltipOptions, legend: { position: 'bottom' } }
+          }
+        });
+
+        // TOPOGRAPHY
+        const ctxTopography = document.getElementById('topographyChart')?.getContext('2d');
+        topographyChart = new Chart(ctxTopography, {
+          type: 'bar',
+          data: {
+            labels: applyWrappedLabels(payload.charts.topography.labels),
+            datasets: [{
+              label: 'Número de Amostras',
+              data: payload.charts.topography.totals,
+              backgroundColor: ['#2563EB', '#06B6D4', '#F59E0B', '#64748B', '#64748B', '#94A3B8'],
+              borderRadius: 4,
+              barPercentage: 0.7
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { x: { grid: { color: '#F1F5F9' } }, y: { grid: { display: false } } },
+            plugins: { tooltip: commonTooltipOptions, legend: { display: false } }
+          }
+        });
+
+        // MICROBIO
+        const ctxMicro = document.getElementById('microbioChart')?.getContext('2d');
+        microbioChart = new Chart(ctxMicro, {
+          type: 'bar',
+          data: {
+            labels: applyWrappedLabels(payload.charts.microbio.labels),
+            datasets: [{
+              label: 'Isolamentos',
+              data: payload.charts.microbio.totals,
+              backgroundColor: ['#8B5CF6', '#EC4899', '#EC4899', '#EC4899', '#8B5CF6', '#EC4899'],
+              borderRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { grid: { color: '#F1F5F9' } }, x: { grid: { display: false } } },
+            plugins: { tooltip: commonTooltipOptions, legend: { display: false } }
+          }
+        });
+
+        // RESISTANCE
+        const ctxResist = document.getElementById('resistanceChart')?.getContext('2d');
+        resistanceChart = new Chart(ctxResist, {
+          type: 'bar',
+          data: {
+            labels: applyWrappedLabels(payload.charts.resistance.labels),
+            datasets: [{
+              label: 'Casos Detectados',
+              data: payload.charts.resistance.totals,
+              backgroundColor: '#EF4444',
+              borderColor: '#FECACA',
+              borderWidth: 1,
+              borderRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { grid: { color: '#334155' }, ticks: { color: '#94A3B8', stepSize: 1 } },
+              x: { grid: { display: false }, ticks: { color: '#CBD5E1' } }
+            },
+            plugins: { tooltip: commonTooltipOptions, legend: { display: false } }
+          }
+        });
+      }
+
+      function updateCharts(payload) {
+        if (!payload?.charts) return;
+
+        updateKPIs(payload);
+        updateTopographyCards(payload);
+
+        if (!productionChart) {
+          initChartsOnce(payload);
+          return;
+        }
+
+        productionChart.data.labels = payload.charts.production.labels;
+        productionChart.data.datasets[0].data = payload.charts.production.positive;
+        productionChart.data.datasets[1].data = payload.charts.production.negative;
+        productionChart.data.datasets[2].data = payload.charts.production.contaminated;
+        productionChart.update();
+
+        topographyChart.data.labels = applyWrappedLabels(payload.charts.topography.labels);
+        topographyChart.data.datasets[0].data = payload.charts.topography.totals;
+        topographyChart.update();
+
+        microbioChart.data.labels = applyWrappedLabels(payload.charts.microbio.labels);
+        microbioChart.data.datasets[0].data = payload.charts.microbio.totals;
+        microbioChart.update();
+
+        resistanceChart.data.labels = applyWrappedLabels(payload.charts.resistance.labels);
+        resistanceChart.data.datasets[0].data = payload.charts.resistance.totals;
+        resistanceChart.update();
+      }
+
+      function fetchDataAndUpdate() {
+        if (!window.google || !google.script || !google.script.run) {
+          console.warn("google.script.run não disponível. Mantendo dados default.");
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler((payload) => {
+            if (!payload || !payload.charts) {
+              console.warn("Payload inválido do Apps Script:", payload);
+              return;
+            }
+            updateCharts(payload);
+          })
+          .withFailureHandler((err) => {
+            console.error("Erro ao buscar dados do Apps Script:", err);
+          })
+          .getDashboardData();
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        // ✅ nunca fica em branco
+        updateCharts(DEFAULT_PAYLOAD);
+
+        // ✅ tenta puxar do Sheets
+        fetchDataAndUpdate();
+        setInterval(fetchDataAndUpdate, 10000);
+      });
+    </script>
+</body>
+</html>
